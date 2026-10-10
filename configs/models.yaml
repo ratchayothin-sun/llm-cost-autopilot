@@ -1,0 +1,15 @@
+# price = "ราคาอ้างอิง" ของโมเดลเทียบเท่าที่เสียเงิน (ดอลลาร์ต่อ 1M token)
+# ใช้คำนวณ "ต้นทุนจำลอง" เพื่อวัดว่า router ประหยัดเท่าไร ไม่ได้จ่ายจริง
+tiers:
+  - name: small
+    model: ollama/llama3.2
+    input_price_per_1m: 0.10    
+    output_price_per_1m: 0.40
+  - name: medium
+    model: ollama/qwen2.5:7b
+    input_price_per_1m: 0.50
+    output_price_per_1m: 2.00
+  - name: large
+    model: gemini/gemini-3.8-flash
+    input_price_per_1m: 0.75
+    output_price_per_1m: 3.75
