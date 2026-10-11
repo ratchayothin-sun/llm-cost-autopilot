@@ -2,11 +2,11 @@
 # ใช้คำนวณ "ต้นทุนจำลอง" เพื่อวัดว่า router ประหยัดเท่าไร ไม่ได้จ่ายจริง
 tiers:
   - name: small
-    model: ollama/llama3.2
+    model: ollama/llama3.2:latest
     input_price_per_1m: 0.10    
     output_price_per_1m: 0.40
   - name: medium
-    model: ollama/qwen2.5:7b
+    model: ollama/qwen2.5:3b
     input_price_per_1m: 0.50
     output_price_per_1m: 2.00
   - name: large
