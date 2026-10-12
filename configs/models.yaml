@@ -1,15 +1,29 @@
-# price = "ราคาอ้างอิง" ของโมเดลเทียบเท่าที่เสียเงิน (ดอลลาร์ต่อ 1M token)
-# ใช้คำนวณ "ต้นทุนจำลอง" เพื่อวัดว่า router ประหยัดเท่าไร ไม่ได้จ่ายจริง
+# Reference prices (USD per 1M tokens), used ONLY to compute a simulated cost.
+# The small tier runs locally and the Groq tiers run on a free plan, so no money is spent.
+# Prices checked on 2026-10-12 at https://groq.com/pricing :
+#   gpt-oss-20b  0.075 in / 0.30 out      gpt-oss-120b  0.15 in / 0.60 out
+# small: there is no hosted price for a 3B model, so the Groq list price of
+# Llama 3.1 8B (0.05 in / 0.08 out) is used as a stand-in.
+# `params` are passed to the model call (see app/providers/client.py).
 tiers:
   - name: small
     model: ollama/llama3.2:latest
-    input_price_per_1m: 0.10    
-    output_price_per_1m: 0.40
+    input_price_per_1m: 0.05
+    output_price_per_1m: 0.08
   - name: medium
-    model: ollama/qwen2.5:3b
-    input_price_per_1m: 0.50
-    output_price_per_1m: 2.00
+    model: groq/openai/gpt-oss-20b
+    input_price_per_1m: 0.075
+    output_price_per_1m: 0.30
+    params:
+      temperature: 0
+      max_tokens: 2048
+      reasoning_effort: low
+      num_retries: 3
   - name: large
-    model: gemini/gemini-3.8-flash
-    input_price_per_1m: 0.75
-    output_price_per_1m: 3.75
+    model: groq/openai/gpt-oss-120b
+    input_price_per_1m: 0.15
+    output_price_per_1m: 0.60
+    params:
+      temperature: 0
+      max_tokens: 2048
+      num_retries: 3

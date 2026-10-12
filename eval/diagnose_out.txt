@@ -1,0 +1,43 @@
+== k11 (knowledge)  expected: contains any of: เชียงใหม่ | chiang mai | chiangmai
+   medium  WRONG-CONTENT  len=21
+           เชียงราย (Chiang Rai)
+   large   ok
+
+== k15 (knowledge)  expected: contains any of: ลพบุรี | lopburi | lop buri
+   medium  WRONG-CONTENT  len=15
+           จังหวัดศรีสะเกษ
+   large   WRONG-CONTENT  len=21
+           จังหวัดนครศรีธรรมราช.
+
+== m3 (math)  expected: number 225
+   medium  NEAR-MISS (expected number appears, but not as the final/ANSWER number)  len=105
+           รถวิ่ง 90 กม./ชม. เป็นเวลา 2.5 ชั่วโมง → ระยะทาง = 90 × 2.5 = **225 กิโลเมตร**   ⏎ (ตัวเลขสุดท้ายคือ **5**)
+   large   NEAR-MISS (expected number appears, but not as the final/ANSWER number)  len=6
+           225, 5
+
+== m5 (math)  expected: number 125
+   medium  ok
+   large   NEAR-MISS (expected number appears, but not as the final/ANSWER number)  len=13
+           ทอน 125 บาท 5
+
+== m6 (math)  expected: number 1080
+   medium  ok
+   large   NEAR-MISS (expected number appears, but not as the final/ANSWER number)  len=10
+           1080 บาท 0
+
+== t2 (instruction)  expected: contains any of: hot-tempered | short-tempered | quick-tempered | hot tempered | short tempered | impatient | hot-headed | hotheaded | hot headed
+   medium  WRONG-CONTENT  len=26
+           He is a hot‑headed person.
+   large   WRONG-CONTENT  len=19
+           He is hot‑tempered.
+
+=== Summary of WRONG results by likely reason ===
+medium  ran   6  ok   2  wrong   4 = near-miss 1, no-answer-line 0, wrong-content 3
+large   ran   6  ok   1  wrong   5 = near-miss 3, no-answer-line 0, wrong-content 2
+
+How to read this:
+ - near-miss: look at these first; if the answer is really right, the checker is too strict.
+ - no-answer-line: the model ignored the format. A real weakness of the model, but a
+   different one from 'does not know the answer'; report them separately.
+ - wrong-content: genuine failures. These are the ones a bigger model should rescue.
+ - Any checker change made after reading this is a dev-set change: write it down for the README.

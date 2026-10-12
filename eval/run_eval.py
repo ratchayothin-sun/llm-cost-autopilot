@@ -35,9 +35,15 @@ def load_items():
     return items
 
 
+# Models such as gpt-oss write typographic characters (non-breaking hyphen U+2011,
+# no-break spaces). Treat them as the plain ones before an answer is checked.
+_NORMALIZE = {ord(c): "-" for c in "\u2010\u2011\u2212"}
+_NORMALIZE.update({ord(c): " " for c in "\u00a0\u202f\u2009"})
+
+
 def check_answer(output: str, spec: dict) -> bool:
     kind = spec["type"]
-    text = output or ""
+    text = (output or "").translate(_NORMALIZE)
 
     if kind == "contains_any":
         low = text.lower()
@@ -150,7 +156,7 @@ def main():
                 out = "[ABORTED: token repeat limit]"
 
             # daily quota exhausted: stop this tier and do not save an error row
-            if err and "PerDay" in full_err:
+            if err and any(s in full_err for s in ("PerDay", "(TPD)", "(RPD)", "per day")):
                 print(f"[{tier['name']}] daily quota exhausted; stopping this tier. "
                       f"Run again after the quota resets.")
                 break
