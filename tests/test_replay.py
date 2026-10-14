@@ -114,9 +114,34 @@ def test_main_prints_a_report(files, capsys):
     assert code == 0
     assert "split=dev: 2 items" in out
     assert "always medium" in out and "CEILING omniscient router" in out
+    assert "Items each policy gets wrong" in out
+    assert "always medium" in out.split("Items each policy gets wrong")[1]
 
 
 def test_main_reports_when_nothing_can_be_replayed(files, capsys):
     db, dataset = files
     sqlite3.connect(db).execute("DELETE FROM results").connection.commit()
     assert replay.main(["--db", str(db), "--dataset", str(dataset)]) == 1
+
+
+def test_main_explains_a_missing_database_without_creating_one(files, tmp_path, capsys):
+    _, dataset = files
+    missing = tmp_path / "nope.db"
+    assert replay.main(["--db", str(missing), "--dataset", str(dataset)]) == 1
+    out = capsys.readouterr().out
+    assert "cannot find the results database" in out and "run_eval" in out
+    assert not missing.exists()                    # sqlite3.connect would have created an empty file
+
+
+def test_main_explains_a_missing_dataset(files, tmp_path, capsys):
+    db, _ = files
+    assert replay.main(["--db", str(db), "--dataset", str(tmp_path / "nope.jsonl")]) == 1
+    assert "cannot find the dataset" in capsys.readouterr().out
+
+
+def test_main_explains_a_database_without_a_results_table(files, tmp_path, capsys):
+    _, dataset = files
+    empty = tmp_path / "empty.db"
+    sqlite3.connect(empty).close()                 # a valid, empty sqlite file (what a failed earlier run leaves)
+    assert replay.main(["--db", str(empty), "--dataset", str(dataset)]) == 1
+    assert "not a usable results database" in capsys.readouterr().out

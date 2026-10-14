@@ -223,6 +223,16 @@ def print_report(items, policies, baseline="always medium"):
     return results
 
 
+def print_wrong(items, results, names=("always medium", "always large", "router (true task_type)")):
+    """List the items each of a few policies gets wrong (to audit checkers, not to tune policies)."""
+    print("=== Items each policy gets wrong ===")
+    for name in names:
+        if name in results:
+            wrong = sorted(i for i in items if not results[name][i][1])
+            print(f"{name:26s} ({len(wrong):2d}): {' '.join(wrong) if wrong else '-'}")
+    print()
+
+
 def build_policies(task_types=None):
     by_category = lambda item: item["category"]  # noqa: E731  (true label: an upper bound for a classifier)
     policies = {
@@ -254,8 +264,24 @@ def main(argv=None):
                     help="also route by a task_type predicted from the prompt (needs scikit-learn)")
     args = ap.parse_args(argv)
 
+    # sqlite3.connect() silently creates an empty file when the path is wrong, so check first
+    if not Path(args.dataset).is_file():
+        print(f"cannot find the dataset at {args.dataset}")
+        return 1
+    if not Path(args.db).is_file():
+        print(f"cannot find the results database at {args.db}\n"
+              "It is not in a fresh clone (*.db is git-ignored unless added with git add -f). "
+              "Either run python -m eval.run_eval for every tier to create it, or pass the file "
+              "with --db.")
+        return 1
+
     dataset = load_dataset(args.dataset)
-    items, skipped = load_results(args.db, dataset, args.split)
+    try:
+        items, skipped = load_results(args.db, dataset, args.split)
+    except sqlite3.DatabaseError as e:   # not a database, or no 'results' table
+        print(f"{args.db} is not a usable results database ({e}). "
+              "Re-create it with python -m eval.run_eval.")
+        return 1
     print(f"split={args.split}: {len(items)} items with results from all three tiers"
           + (f", {len(skipped)} left out (missing or errored): {', '.join(skipped[:12])}"
              + (" ..." if len(skipped) > 12 else "") if skipped else ""))
@@ -272,11 +298,13 @@ def main(argv=None):
             print("scikit-learn is not installed (pip install scikit-learn): skipping --auto-classify\n")
         else:
             right = sum(task_types[i] == items[i]["category"] for i in items)
-            print(f"task classifier (prompt text only, leave-one-out on dev): "
+            print("task classifier (prompt text only; dev items are predicted leave-one-out, "
+                  "other items by a model fit on all dev prompts): "
                   f"{right}/{len(items)} categories predicted correctly\n")
 
     print("=== Policies (cost = simulated, per request; CEILING rows are not achievable) ===")
-    print_report(items, build_policies(task_types))
+    results = print_report(items, build_policies(task_types))
+    print_wrong(items, results)
     verifier_diagnostics(items)
     agreement_diagnostics(items)
 
