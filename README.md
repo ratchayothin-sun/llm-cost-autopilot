@@ -1,22 +1,45 @@
-# LLM cost autopilot
+# LLM Cost Autopilot
 
 ![tests](https://github.com/ratchayothin-sun/llm-cost-autopilot/actions/workflows/tests.yml/badge.svg)
 
-A small API gateway that sends each request to the cheapest model tier that can handle it, checks
-the answer, and moves up to a larger model only when the check fails. It exists to answer one
-question with measurements: does routing save money without losing accuracy? The results below
-include the parts that did not work.
+Routes every request to the cheapest model that can handle it, then verifies the call was right.
 
-- **Endpoint:** `POST /v1/chat/completions` with `messages` and an optional `task_type`
-  (for example `knowledge`, `math`, `extraction`). The response carries the answer, the tier that
-  produced it, the number of escalations and the simulated cost.
-- **Tiers:** small (Llama 3.2, local), medium (`gpt-oss-20b`) and large (`gpt-oss-120b`), the last two on the
-  Groq free tier, called through LiteLLM.
-- **Policies:** `cascade`, `cascade_format` and `router`, chosen with the `AUTOPILOT_POLICY` environment
-  variable. Each is a plain table of which tiers to try and which check to apply
-  (`app/router/policy.py`, `app/router/verifiers.py`).
-- **Logging:** every attempt (tier, tokens, simulated cost, latency, verdict) is written to SQLite.
-- **No money is spent:** costs are simulated from reference prices; see "Setup" under Results.
+> **Status:** all four phases are done: gateway and cascade, a rule-based router, format checks as
+> verifiers, and an offline benchmark. **Result in one line:** on 58 held-out items the router reached
+> 91.4% accuracy at 46% of the always-large cost (always-medium: 81.0% at 30%). Costs are simulated and
+> the test set is small and knowledge-heavy; see Results for what worked and what did not.
+
+## Problem
+
+Calling the largest LLM for every request is expensive, but most requests
+don't need it. This project puts a gateway in front of multiple models that
+tries cheaper models first and escalates only when the answer fails a check.
+
+## Architecture
+
+```
+Client -> FastAPI gateway -> Cascade (tier 1 -> tier 2 -> ...) -> Verifier
+                                   |                                  |
+                                   +----------> SQLite log <----------+
+```
+
+- **Gateway:** FastAPI, `POST /v1/chat/completions` (body: `messages` and an optional `task_type`)
+- **Providers:** LiteLLM; small tier on local Ollama (Llama 3.2), medium and large on the Groq free tier
+- **Router:** a policy (`app/router/policy.py`) picks which tiers to try, and in which order, from `task_type`
+- **Cascade:** tries the planned tiers in order and escalates on an error or a rejected answer;
+  the last tier's answer is returned even if it fails the check
+- **Verifiers:** `app/router/verifiers.py`: non-empty check and format rules (required `ANSWER:` line,
+  valid JSON, no stray CJK characters)
+- **Logging:** every request and every attempt (tokens, simulated cost, latency, verdict) in SQLite
+- **Tests:** pytest with mocked model calls, run by GitHub Actions on every push to `main` and on pull requests
+- **Benchmark:** `eval/` holds the dataset, the stored answers of every tier and an offline replay of routing policies
+
+## Cost model
+
+Prices in `configs/models.yaml` are *reference prices* of comparable paid
+models, used to compute **simulated cost** for comparing strategies.
+No money is actually spent: the models run locally or on free tiers.
+Reported savings are relative (e.g. "-X% simulated cost"), not real currency.
 
 ## Results
 
@@ -156,7 +179,7 @@ To run the gateway you need a free [Groq](https://console.groq.com) API key and 
 $env:GROQ_API_KEY = "<your key>"
 $env:OLLAMA_API_BASE = "http://127.0.0.1:11434"    # only if localhost does not reach Ollama
 $env:AUTOPILOT_POLICY = "router"                   # default is "cascade"
-uvicorn app.main:app
+uvicorn app.main:app                               # then open http://127.0.0.1:8000/docs
 ```
 
 ## Gateway demo
@@ -196,3 +219,10 @@ total                   0   0.000243
 ```powershell
 python -c "import sqlite3; c=sqlite3.connect('autopilot.db'); [print(r) for r in c.execute('SELECT id, task_type, final_tier, total_cost, escalations FROM requests ORDER BY id DESC LIMIT 8')]"
 ```
+
+## Next steps
+
+- Try a learned judge as the verifier (untested; see "What did not work").
+- Put a prompt-only task-type guesser in front of the gateway and test it on prompts written by someone else.
+- Re-run the benchmark on a test set that looks like real traffic instead of a knowledge-heavy one.
+- Host the small tier somewhere faster than a laptop CPU.
